@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Conversion Game Prototype</title>
+		<style>
+body { margin: 0; overflow: hidden; background-color: #000; font-family: "monospace"}
+canvas { background-color: #000; display: block; }
+
+#lives-stat {
+	position: absolute;
+	top: 20px;
+	left: 20px;
+	font-size: 1.5rem;
+	z-index: 1;
+	color: #d55;
+}
+
+.button {
+	position: absolute;
+	bottom: 20px;
+	height: 50px;
+	width: 15vw;
+	font-size: 1.5rem;
+	z-index: 1;
+	transform: translateX(-50%);
+}
+
+#b1 { left: 20%; }
+#b2 { left: 50%; }
+#b3 { left: 80%; }
+		</style>
+	</head>
+	<body>
+		<canvas id="game"></canvas>
+		<span id="lives-stat">Vidas: <span class="var">0</span></span>
+		<input id="b1" type="button" class="button">
+		<input id="b2" type="button" class="button">
+		<input id="b3" type="button" class="button">
+		<script>
+function resizeCanvas() {
+	g.width = window.innerWidth;
+	g.height = window.innerHeight;
+	speed = g.height*0.0025;
+	convValueLimit = g.height * 0.15;
+}
+
+function getRandomInRange(min, max) {
+  return Math.random() * (max - min) + min;
+}
+
+function generateBinaryNumber(bits) {
+	return Array.from({length: bits}, () => Math.round(Math.random())).join('');
+}
+
+function updateConversion() {
+	convValue = generateBinaryNumber(4);
+	xPos = g.width/2 + getRandomInRange(-150, 30);
+	yPos = 0;
+	livesStat.textContent = lives;
+
+	const randomMap = {};
+	correctAnswer = Math.floor(Math.random() * 3);
+	randomMap[convValue] = true;
+
+	buttons.forEach((btn, idx) => {
+		if (idx === correctAnswer) {
+			btn.value = parseInt(convValue, 2).toString();
+		} else {
+			let v;
+			do {
+				v = generateBinaryNumber(4);
+			} while (randomMap[v] !== undefined);
+			randomMap[v] = true;
+			btn.value = parseInt(v, 2).toString();
+		}
+
+		btn.onclick = function() {
+			if (idx === correctAnswer) {
+				updateConversion();
+			} else {
+				livesStat.textContent = --lives;
+				if (lives <= 0) {
+					alert('Game Over');
+					start();
+					return;
+				}
+				updateConversion();
+			}
+		};
+	});
+}
+
+function start() {
+	lives = 3;
+	resizeCanvas();
+	updateConversion();
+}
+
+function loop(timeStamp) {
+	ctx.clearRect(0, 0, g.width, g.height);
+	ctx.font = '48px monospace';
+	ctx.fillStyle = 'white';
+	ctx.fillText(convValue, xPos, yPos);
+
+	ctx.fillStyle = '#660';
+	ctx.fillRect(0, g.height - convValueLimit, g.width, convValueLimit);
+
+	yPos += speed;
+
+	if (yPos > g.height - convValueLimit) {
+		livesStat.textContent = --lives;
+		if (lives <= 0) {
+			alert('Game Over');
+			start();
+			requestAnimationFrame(loop);
+			return;
+		}
+		updateConversion();
+	}
+	requestAnimationFrame(loop);
+}
+
+const g = document.getElementById('game');
+const ctx = g.getContext('2d');
+
+const buttons = document.querySelectorAll('.button');
+const livesStat = document.querySelector('#lives-stat .var');
+
+let convValue;
+let speed;
+let convValueLimit;
+let correctAnswer;
+let lives;
+
+window.addEventListener('resize', resizeCanvas);
+
+start();
+loop();
+		</script>
+	</body>
+</html>
