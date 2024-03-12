@@ -1,17 +1,28 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-br">
 	<head>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>Conversion Game Prototype</title>
+		<title>Conversion Game Prototype v0.001</title>
 		<style>
 body { margin: 0; overflow: hidden; background-color: #000; font-family: "monospace"}
 canvas { background-color: #000; display: block; }
 
+#score-stat {
+	position: absolute;
+	white-space: pre;
+	top: 0.5rem;
+	left: 1rem;
+	font-size: 1.5rem;
+	z-index: 1;
+	color: #da5;
+}
+
 #lives-stat {
 	position: absolute;
-	top: 20px;
-	left: 20px;
+	white-space: pre;
+	top: 2.5rem;
+	left: 1rem;
 	font-size: 1.5rem;
 	z-index: 1;
 	color: #d55;
@@ -19,8 +30,8 @@ canvas { background-color: #000; display: block; }
 
 .button {
 	position: absolute;
-	bottom: 20px;
-	height: 50px;
+	bottom: 4vh;
+	height: 10vh;
 	width: 15vw;
 	font-size: 1.5rem;
 	z-index: 1;
@@ -34,17 +45,13 @@ canvas { background-color: #000; display: block; }
 	</head>
 	<body>
 		<canvas id="game"></canvas>
-		<span id="lives-stat">Vidas: <span class="var">0</span></span>
+		<span id="score-stat">Pontos: <span class="var">0</span></span>
+		<span id="lives-stat">Vidas:  <span class="var">0</span></span>
 		<input id="b1" type="button" class="button">
 		<input id="b2" type="button" class="button">
 		<input id="b3" type="button" class="button">
 		<script>
-function resizeCanvas() {
-	g.width = window.innerWidth;
-	g.height = window.innerHeight;
-	speed = g.height*0.0025;
-	convValueLimit = g.height * 0.15;
-}
+'use strict';
 
 function getRandomInRange(min, max) {
   return Math.random() * (max - min) + min;
@@ -54,67 +61,99 @@ function generateBinaryNumber(bits) {
 	return Array.from({length: bits}, () => Math.round(Math.random())).join('');
 }
 
+function increaseDifficulty() {
+	if (score == 8)
+		++binaryNumberLength;
+	else if (score >= 10 && fallTime > 4000) {
+		fallTime = startingFallTime - (Math.log10(score - 9) * 1000)
+		if (fallTime < 4000)
+			fallTime = 4000;
+	}
+}
+
 function updateConversion() {
-	convValue = generateBinaryNumber(4);
-	xPos = g.width/2 + getRandomInRange(-150, 30);
+	xPos = getRandomInRange(xPosRangeStart, xPosRangeEnd);
 	yPos = 0;
-	livesStat.textContent = lives;
+
+	convValue = generateBinaryNumber(binaryNumberLength);
+	console.log(convValue);
 
 	const randomMap = {};
-	correctAnswer = Math.floor(Math.random() * 3);
+	correctValue = Math.floor(Math.random() * 3);
 	randomMap[convValue] = true;
 
 	buttons.forEach((btn, idx) => {
-		if (idx === correctAnswer) {
+		if (idx == correctValue) {
 			btn.value = parseInt(convValue, 2).toString();
 		} else {
 			let v;
 			do {
-				v = generateBinaryNumber(4);
-			} while (randomMap[v] !== undefined);
+				v = generateBinaryNumber(binaryNumberLength);
+			} while (randomMap[v] != undefined);
 			randomMap[v] = true;
 			btn.value = parseInt(v, 2).toString();
 		}
-
-		btn.onclick = function() {
-			if (idx === correctAnswer) {
-				updateConversion();
-			} else {
-				livesStat.textContent = --lives;
-				if (lives <= 0) {
-					alert('Game Over');
-					start();
-					return;
-				}
-				updateConversion();
-			}
-		};
 	});
 }
 
+function resizeCanvas() {
+	g.width = window.innerWidth;
+	g.height = window.innerHeight;
+	convValueLimit = g.height * .82;
+	speed = convValueLimit / fallTime;
+
+	if (g.width < g.height)
+		convValueFontSize = g.width * .15;
+	else
+		convValueFontSize = g.height * .15;
+
+	convValueWidth = (convValueFontSize * binaryNumberLength) * .6;
+	xPosRangeStart = g.width * .05;
+	xPosRangeEnd = g.width * .95 - convValueWidth;
+
+	if (xPos + convValueWidth > g.width)
+		xPos -= convValueWidth;
+	if (xPos < 0)
+		xPos = xPosRangeStart;
+}
+
 function start() {
-	lives = 3;
+	firstFrame = true;
+
+	fallTime = startingFallTime;
+	scoreStat.textContent = score = 0;
+	livesStat.textContent = lives = 3;
+	binaryNumberLength = 4;
+
 	resizeCanvas();
 	updateConversion();
 }
 
+function finishGame() {
+	alert('Game Over! PONTUAÇÃO FINAL: ' + score);
+	start();
+}
+
 function loop(timeStamp) {
+	const deltaTime = (firstFrame) ? 0 : timeStamp - lastTimeStamp;
+	firstFrame = false;
+	lastTimeStamp = timeStamp;
+
 	ctx.clearRect(0, 0, g.width, g.height);
-	ctx.font = '48px monospace';
+	ctx.font = convValueFontSize + 'px monospace';
 	ctx.fillStyle = 'white';
 	ctx.fillText(convValue, xPos, yPos);
 
-	ctx.fillStyle = '#660';
-	ctx.fillRect(0, g.height - convValueLimit, g.width, convValueLimit);
+	ctx.fillStyle = '#860';
+	ctx.fillRect(0, convValueLimit, g.width, g.height - convValueLimit);
 
-	yPos += speed;
+	yPos += speed * deltaTime;
 
-	if (yPos > g.height - convValueLimit) {
+	if (yPos > convValueLimit) {
 		livesStat.textContent = --lives;
 		if (lives <= 0) {
-			alert('Game Over');
-			start();
-			requestAnimationFrame(loop);
+			finishGame();
+			loop(0);
 			return;
 		}
 		updateConversion();
@@ -126,18 +165,44 @@ const g = document.getElementById('game');
 const ctx = g.getContext('2d');
 
 const buttons = document.querySelectorAll('.button');
+const scoreStat = document.querySelector('#score-stat .var');
 const livesStat = document.querySelector('#lives-stat .var');
 
+const startingFallTime = 14000;
+
+let binaryNumberLength;
 let convValue;
-let speed;
 let convValueLimit;
-let correctAnswer;
+let convValueFontSize, convValueWidth;
+let speed, fallTime, xPos, yPos, xPosRangeStart, xPosRangeEnd;
+let correctValue;
+let score;
 let lives;
+let firstFrame, lastTimeStamp = 0;
+
+buttons.forEach((btn, idx) => {
+	btn.onclick = function() {
+		if (idx == correctValue) {
+			scoreStat.textContent = ++score;
+			increaseDifficulty();
+			updateConversion();
+		} else {
+			livesStat.textContent = --lives;
+			if (lives <= 0) {
+				finishGame();
+				return;
+			}
+			updateConversion();
+		}
+	};
+})
 
 window.addEventListener('resize', resizeCanvas);
+window.addEventListener('mouseenter', resizeCanvas);
+window.addEventListener('mouseout', resizeCanvas);
 
 start();
-loop();
+loop(0);
 		</script>
 	</body>
 </html>
